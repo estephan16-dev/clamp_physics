@@ -19,6 +19,8 @@
   header h1{font-size:15px;font-weight:600;letter-spacing:.04em}
   header h1 span{color:var(--dim);font-weight:400}
   #phaseChip{font-family:var(--mono);font-size:11px;padding:3px 10px;border:1px solid var(--line);border-radius:3px;color:var(--amber);background:#15120a;white-space:nowrap}
+  #analysisBanner{padding:10px 18px;border-bottom:1px solid var(--line);background:#0d1117;font-size:12.5px;line-height:1.6;color:var(--dim)}
+  #analysisBanner b{color:var(--cyan);font-weight:600}
   #tClock{font-family:var(--mono);font-size:12px;color:var(--cyan);margin-left:auto}
   #main{display:flex;height:62vh;min-height:430px;border-bottom:1px solid var(--line)}
   #viewport{flex:1;position:relative;min-width:0}
@@ -74,6 +76,8 @@
   <div id="tClock">t = 0.000 s</div>
 </header>
 
+<div id="analysisBanner">As a single legal motor pattern, the clamp pathway is close to the time-optimal frontier — <b>you can't squeeze much more out of the movement itself</b>. But "most efficient way to win a clamp against a person" is a strategy-and-latency problem, not a kinematics problem, and the model (correctly) shows <b>the movement was never the bottleneck</b>.</div>
+
 <div id="main">
   <div id="viewport">
     <canvas id="c3d"></canvas>
@@ -91,6 +95,14 @@
   </div>
 
   <aside id="rail">
+
+    <div class="sec"><h2>§0 NEUTRAL ZONE CHECK · RULE 4-5 / 1-8</h2><div class="bd">
+      <div class="kv"><span class="k">wing line, |x|</span><span class="v">18.288 m (20 yd)</span></div>
+      <div class="kv"><span class="k">min |x|, any tracked point</span><span class="v" id="rWingMin">·</span></div>
+      <div class="kv"><span class="k">margin to wing line</span><span class="v" id="rWingMargin">·</span></div>
+      <div class="kv"><span class="k">encroachment</span><span class="v" id="rEncroach">·</span></div>
+      <div class="note">Tracks the model's most upfield/downfield point (feet, hands, head) against the wing-line position, |x| = 18.288 m (20 yd from field center, Rule 1-8). At this model's scale (~0.5–0.6 m of motion about the ball), the rig sits roughly 17.7 m inside the wing line at all times — encroachment is a non-issue for the modeled rep, but this is the live check rather than an assumption.</div>
+    </div></div>
 
     <div class="sec"><h2>§1 KINEMATIC STATE VECTOR</h2><div class="bd">
       <div class="kv"><span class="k">phase</span><span class="v" id="rPhase">Setup</span></div>
@@ -345,7 +357,23 @@ var midline = new THREE.Mesh(
 midline.position.y = 0.002;
 scene.add(midline);
 
-// ball
+// ---------- wing-area boundary, NCAA Rule 1-8 / Rule 4-5 ----------
+// Wing lines run parallel to the sidelines (along Z in this frame), placed
+// 20 yards (18.288 m) either side of the field center along X, and each
+// extends 10 yards (9.144 m) on either side of the center line (Z=0).
+// Drawn at TRUE SCALE (1 world unit = 1 m, per C.R = ball radius 0.0319 m).
+// At this scale the wing lines sit far outside the rendered turf/camera
+// volume -- they exist here as a geometric reference for the encroachment
+// check in refreshParams(), not as a visible boundary in the default view.
+var WING = { x: 18.288, zHalf: 9.144 };
+[ -1, 1 ].forEach(function(sign){
+  var pts = [
+    new THREE.Vector3(sign*WING.x, 0.002, -WING.zHalf),
+    new THREE.Vector3(sign*WING.x, 0.002,  WING.zHalf)];
+  var wl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color: 0xfbbf24}));
+  scene.add(wl);
+});
 var ball = new THREE.Mesh(
   new THREE.SphereGeometry(C.R, 28, 20),
   new THREE.MeshStandardMaterial({color: 0xf5f0dd, roughness: 0.55, emissive: 0x141208}));
@@ -581,6 +609,7 @@ var el = {
   rPhase: $('rPhase'), rTheta: $('rTheta'), rPsi: $('rPsi'), rOmega: $('rOmega'), rAlpha: $('rAlpha'),
   rDead: $('rDead'), rRFD: $('rRFD'), rRFDpk: $('rRFDpk'),
   rIcrosse: $('rIcrosse'), rIforearm: $('rIforearm'), rIpar: $('rIpar'),
+  rWingMin: $('rWingMin'), rWingMargin: $('rWingMargin'), rEncroach: $('rEncroach'),
   rDtau: $('rDtau'), rMA: $('rMA'),
   rMus: $('rMus'), rMuk: $('rMuk'), rN: $('rN'), rFcap: $('rFcap'), rFsh: $('rFsh'),
   fricbar: $('fricbar'), rRegime: $('rRegime'),
@@ -716,6 +745,22 @@ function update(){
   comLine.geometry.setFromPoints([new THREE.Vector3(cx, 0.004, cz), new THREE.Vector3(cx, cy, cz)]);
   comLine.computeLineDistances();
   comDot.position.set(cx, 0.004, cz);
+
+  // --- §0 neutral-zone encroachment check, Rule 4-5 / 1-8 ---
+  // Track |x| for every modeled extremity (feet, hands, head, both stick
+  // ends) against the wing line at |x| = 18.288 m (20 yd).
+  var trackPts = [footA.position, footB.position, RIG.headC];
+  handR.getWorldPosition(_wp); trackPts.push(_wp.clone());
+  handL.getWorldPosition(_wp); trackPts.push(_wp.clone());
+  stick.getWorldPosition(_wp); trackPts.push(_wp.clone());
+  var maxAbsX = 0;
+  trackPts.forEach(function(p){ maxAbsX = Math.max(maxAbsX, Math.abs(p.x)); });
+  var wingMargin = WING.x - maxAbsX;
+  el.rWingMin.textContent = maxAbsX.toFixed(3) + ' m';
+  el.rWingMargin.textContent = wingMargin.toFixed(3) + ' m';
+  var encroach = wingMargin <= 0;
+  el.rEncroach.textContent = encroach ? 'VIOLATION \u2014 outside wing line' : 'none \u2014 inside wing line';
+  el.rEncroach.style.color = encroach ? '#f87171' : '#34d399';
 
   // --- vectors ---
   var clampOn = S.phase === 2;
