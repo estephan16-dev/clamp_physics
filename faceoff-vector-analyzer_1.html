@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4D Biomechanical Vector Analyzer · SNG Faceoff</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#11161e; --panel2:#0e1319; --line:#1f2937;
+    --txt:#d7dee8; --dim:#8a97a8; --faint:#5b6878;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --red:#f87171;
+    --green:#34d399; --orange:#fb923c; --fuchsia:#e879f9; --white:#e5e7eb;
+    --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Inter","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px}
+  header{display:flex;align-items:baseline;gap:18px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  header h1{font-size:15px;font-weight:600;letter-spacing:.04em}
+  header h1 span{color:var(--dim);font-weight:400}
+  #phaseChip{font-family:var(--mono);font-size:11px;padding:3px 10px;border:1px solid var(--line);border-radius:3px;color:var(--amber);background:#15120a;white-space:nowrap}
+  #tClock{font-family:var(--mono);font-size:12px;color:var(--cyan);margin-left:auto}
+  #main{display:flex;height:62vh;min-height:430px;border-bottom:1px solid var(--line)}
+  #viewport{flex:1;position:relative;min-width:0}
+  #c3d{width:100%;height:100%;display:block}
+  #legend{position:absolute;top:10px;left:10px;background:rgba(13,17,23,.85);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:10px;line-height:1.75;pointer-events:none}
+  #legend b{display:block;color:var(--dim);font-weight:600;letter-spacing:.08em;margin-bottom:2px}
+  .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  #viewhint{position:absolute;bottom:8px;left:10px;font-family:var(--mono);font-size:10px;color:var(--faint);pointer-events:none}
+  #rail{width:360px;flex:none;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:10px 12px 18px}
+  .sec{border:1px solid var(--line);border-radius:4px;margin-bottom:10px;background:var(--panel2)}
+  .sec h2{font-size:10px;font-family:var(--mono);letter-spacing:.1em;color:var(--dim);padding:7px 10px;border-bottom:1px solid var(--line);font-weight:600}
+  .sec .bd{padding:8px 10px}
+  .kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;padding:2.5px 0}
+  .kv .k{color:var(--dim)}
+  .kv .v{color:var(--txt)}
+  .eq{font-family:var(--mono);font-size:11.5px;color:var(--cyan);background:#0a1620;border:1px solid #143042;border-radius:3px;padding:6px 8px;margin:6px 0;text-align:center}
+  .eq.big{font-size:13px;color:#7dd3fc;padding:9px 8px}
+  .note{font-size:10.5px;color:var(--dim);line-height:1.5;margin-top:5px}
+  .ctl{display:flex;align-items:center;gap:8px;margin:6px 0;font-family:var(--mono);font-size:11px}
+  .ctl label{color:var(--dim);width:118px;flex:none}
+  .ctl input[type=range]{flex:1;accent-color:var(--cyan);height:3px}
+  .ctl .val{width:74px;text-align:right;color:var(--txt)}
+  .toggle{display:flex;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .toggle button{background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:10.5px;padding:3px 10px;cursor:pointer}
+  .toggle button.on{background:#123042;color:var(--cyan)}
+  #fricbarWrap{height:10px;background:#0a0f15;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+  #fricbar{height:100%;width:10%;background:var(--green);transition:none}
+  .regime{font-family:var(--mono);font-size:10.5px;margin-top:4px}
+  #pcanvas{width:100%;height:70px;display:block;margin-top:6px;background:#0a0f15;border:1px solid var(--line);border-radius:3px}
+  #timeline{display:flex;align-items:center;gap:14px;padding:13px 18px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  #playBtn{width:74px;background:#123042;border:1px solid #1d4ed8;color:var(--cyan);font-family:var(--mono);font-size:11px;padding:6px 0;border-radius:3px;cursor:pointer}
+  #speedSel{background:var(--panel);border:1px solid var(--line);color:var(--txt);font-family:var(--mono);font-size:11px;padding:5px;border-radius:3px}
+  #trk{flex:1;position:relative;height:34px;display:flex;align-items:center}
+  #tSlider{width:100%;accent-color:var(--amber);height:4px;position:relative;z-index:2}
+  .tick{position:absolute;top:0;width:1px;height:12px;background:var(--faint);z-index:1}
+  .tick i{position:absolute;top:12px;left:-30px;width:70px;text-align:center;font-style:normal;font-family:var(--mono);font-size:9px;color:var(--faint)}
+  #tEnd{font-family:var(--mono);font-size:11px;color:var(--dim);width:120px;text-align:right}
+  #matrix{padding:16px 18px 30px}
+  #matrix h2{font-size:11px;font-family:var(--mono);letter-spacing:.1em;color:var(--dim);margin-bottom:9px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+  th{color:var(--dim);font-weight:600;background:var(--panel2)}
+  td.win{color:var(--green)} td.lose{color:var(--red)} td.live{color:var(--cyan)}
+  .methods{font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:12px;max-width:980px}
+  sub,sup{font-size:.72em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>4D BIOMECHANICAL VECTOR ANALYZER <span>· Men's Field Lacrosse · Standing Neutral Grip Faceoff · multi-body rigid dynamics, R<sup>3</sup> × t</span></h1>
+  <div id="phaseChip">PHASE 0 · SETUP STANCE</div>
+  <div id="tClock">t = 0.000 s</div>
+</header>
+
+<div id="main">
+  <div id="viewport">
+    <canvas id="c3d"></canvas>
+    <div id="legend">
+      <b>VECTOR CODING</b>
+      <div><span class="sw" style="background:var(--cyan)"></span>τ<sub>sup</sub> supination torque, bottom hand</div>
+      <div><span class="sw" style="background:var(--violet)"></span>F<sub>pron</sub> pronation-flexion drive, top hand</div>
+      <div><span class="sw" style="background:var(--orange)"></span>ω angular velocity, shaft axis</div>
+      <div><span class="sw" style="background:var(--amber)"></span>F<sub>GRF</sub> ground reaction force</div>
+      <div><span class="sw" style="background:var(--green)"></span>N contact normal, head on turf</div>
+      <div><span class="sw" style="background:var(--red)"></span>f friction, head-turf interface</div>
+      <div><span class="sw" style="background:var(--fuchsia)"></span>CoM and vertical projection</div>
+    </div>
+    <div id="viewhint">drag · orbit &nbsp;&nbsp; wheel · dolly</div>
+  </div>
+
+  <aside id="rail">
+
+    <div class="sec"><h2>§1 KINEMATIC STATE VECTOR</h2><div class="bd">
+      <div class="kv"><span class="k">phase</span><span class="v" id="rPhase">Setup</span></div>
+      <div class="kv"><span class="k">θ<sub>roll</sub>(t) head roll</span><span class="v" id="rTheta">0.0°</span></div>
+      <div class="kv"><span class="k">ψ<sub>sweep</sub>(t) horiz. sweep</span><span class="v" id="rPsi">0.0°</span></div>
+      <div class="kv"><span class="k">ω(t) = αt′</span><span class="v" id="rOmega">0.00 rad·s⁻¹</span></div>
+      <div class="kv"><span class="k">α = τ<sub>net</sub>/I<sub>∥</sub></span><span class="v" id="rAlpha">·</span></div>
+      <div class="eq">θ(t′) = ½αt′² ,&nbsp; t′ = t − t<sub>dead</sub> ,&nbsp; θ<sub>c</sub> = π/2</div>
+      <div class="note">Constant-α rigid-body model on the clamp interval. θ(t) is the 90° roll of the head about the shaft's long axis, driven by τ<sub>net</sub> (see §3); ψ(t) is a separate 45° horizontal sweep about a near-vertical axis through the shoulder. ψ = θ/2 is a coupling assumption for this animation, not a kinematic law — the two rotations are actuated by different muscle groups and are not rigidly linked in a real clamp.</div>
+    </div></div>
+
+    <div class="sec"><h2>§2 NEUROMECHANICAL LATENCY ENGINE</h2><div class="bd">
+      <div class="ctl"><label>RT, reaction</label><input type="range" id="sRT" min="140" max="260" step="1" value="180"><span class="val" id="vRT">180 ms</span></div>
+      <div class="ctl"><label>EMD, e-m delay</label><input type="range" id="sEMD" min="40" max="90" step="1" value="55"><span class="val" id="vEMD">55 ms</span></div>
+      <div class="kv"><span class="k">t<sub>dead</sub> = RT + EMD</span><span class="v" id="rDead">0.235 s</span></div>
+      <div class="kv"><span class="k">dF/dt, live RFD</span><span class="v" id="rRFD">0 N·s⁻¹</span></div>
+      <div class="kv"><span class="k">peak RFD = F<sub>max</sub>/τ<sub>F</sub></span><span class="v" id="rRFDpk">·</span></div>
+      <div class="eq">F(t) = F<sub>max</sub>(1 − e<sup>−(t−RT)/τ<sub>F</sub></sup>) ,&nbsp; τ<sub>F</sub> = 40 ms</div>
+      <div class="note">Pure dead time precedes all observable kinematics. RT is the afferent-cortical-efferent loop; EMD is the electromechanical delay of the series elastic component. During EMD, force rises at rate dF/dt while displacement remains null. Pre-load (light hands, weight on the balls of the feet) shortens the effective EMD by pre-tensioning the SEC.</div>
+    </div></div>
+
+    <div class="sec"><h2>§3 ROTATIONAL INERTIA, I<sub>∥</sub> (ROLL ABOUT SHAFT AXIS)</h2><div class="bd">
+      <div class="kv"><span class="k">I<sub>crosse,∥</sub></span><span class="v" id="rIcrosse">·</span></div>
+      <div class="kv"><span class="k">I<sub>forearm</sub> (×2 arms)</span><span class="v" id="rIforearm">·</span></div>
+      <div class="kv"><span class="k">I<sub>∥</sub> = I<sub>crosse,∥</sub> + 2I<sub>forearm</sub></span><span class="v" id="rIpar">·</span></div>
+      <div class="eq">α = τ<sub>net</sub> / I<sub>∥</sub></div>
+      <div class="note">The clamp is a roll about the shaft's own long axis, through the hands. Mass elements separated <i>along</i> that axis contribute ~0 to I — so hand spacing (grip width) does NOT change I<sub>∥</sub>. The roll inertia is dominated by the forearms/hands that co-rotate with the shaft (m<sub>FA</sub> ≈ 1.7 kg, r<sub>FA</sub> ≈ 0.042 m each), not by the crosse itself (I<sub>crosse,∥</sub> ≈ 5×10⁻⁴ kg·m², a slender rod about its own axis). Grip width still matters — for the §4 drive lever.</div>
+    </div></div>
+
+    <div class="sec"><h2>§4 TORQUE BUDGET, Δτ</h2><div class="bd">
+      <div class="ctl"><label>hand spacing d</label><input type="range" id="sD" min="0.15" max="0.50" step="0.005" value="0.30"><span class="val" id="vD">0.300 m</span></div>
+      <div class="ctl"><label>τ<sub>net</sub> player</label><input type="range" id="sTau" min="8" max="30" step="0.5" value="18"><span class="val" id="vTau">18.0 N·m</span></div>
+      <div class="ctl"><label>τ<sub>opp</sub> opponent</label><input type="range" id="sTauO" min="8" max="30" step="0.5" value="14"><span class="val" id="vTauO">14.0 N·m</span></div>
+      <div class="kv"><span class="k">Δτ = τ<sub>net</sub> − τ<sub>opp</sub></span><span class="v" id="rDtau">+4.0 N·m</span></div>
+      <div class="kv"><span class="k">Class-1 lever MA = d/r<sub>head</sub></span><span class="v" id="rMA">·</span></div>
+      <div class="note">The bottom hand is the fulcrum of a Class-1 lever; the top hand applies effort at moment arm d against the contested load at the head, moment arm r<sub>head</sub> = 0.265 m. Sign of Δτ decides which head rotates over the ball. d sets the drive's mechanical advantage — it does not affect I<sub>∥</sub> (see §3).</div>
+    </div></div>
+
+    <div class="sec"><h2>§5 TRIBOLOGY, HEAD-TURF INTERFACE</h2><div class="bd">
+      <div class="ctl"><label>surface state</label>
+        <div class="toggle"><button id="bDry" class="on">DRY</button><button id="bWet">WET</button></div>
+      </div>
+      <div class="kv"><span class="k">μ<sub>s</sub> static</span><span class="v" id="rMus">0.45</span></div>
+      <div class="kv"><span class="k">μ<sub>k</sub> kinetic</span><span class="v" id="rMuk">0.30</span></div>
+      <div class="kv"><span class="k">N(t) pre-load normal</span><span class="v" id="rN">·</span></div>
+      <div class="kv"><span class="k">f<sub>max</sub> = μ<sub>s</sub>N budget</span><span class="v" id="rFcap">·</span></div>
+      <div class="kv"><span class="k">F<sub>shear</sub> demand</span><span class="v" id="rFsh">·</span></div>
+      <div class="eq">f ≤ μ<sub>s</sub>N &nbsp;(stick) ,&nbsp; f = μ<sub>k</sub>N &nbsp;(slip)</div>
+      <div id="fricbarWrap"><div id="fricbar"></div></div>
+      <div class="regime" id="rRegime">regime · STATIC</div>
+      <div class="note">Nylon head on polyethylene turf, Coulomb model. Moisture collapses the asperity adhesion term, μ<sub>s</sub> 0.45 → 0.28, μ<sub>k</sub> 0.30 → 0.18, shrinking the friction budget that anchors the pin. Pre-load N buys budget linearly.</div>
+    </div></div>
+
+    <div class="sec"><h2>§6 HERTZIAN CONTACT, BALL-HEAD</h2><div class="bd">
+      <div class="kv"><span class="k">F<sub>pin</sub>(t)</span><span class="v" id="rFpin">·</span></div>
+      <div class="kv"><span class="k">E* composite modulus</span><span class="v" id="rEst">·</span></div>
+      <div class="kv"><span class="k">a(t) contact radius</span><span class="v" id="rA">·</span></div>
+      <div class="kv"><span class="k">p<sub>0</sub>(t) peak pressure</span><span class="v" id="rP0">·</span></div>
+      <div class="eq">p<sub>0</sub> = 3F / (2πa²) ,&nbsp; a = (3FR/4E*)<sup>1/3</sup></div>
+      <canvas id="pcanvas" width="320" height="70"></canvas>
+      <div class="note">Elastomeric sphere, E = 0.1 GPa, ν = 0.47, R = 31.9 mm, against rigid injection-molded nylon, E = 3 GPa, ν = 0.35. Semi-ellipsoidal pressure profile p(r) = p<sub>0</sub>√(1 − r²/a²) drawn live above; the non-uniformity concentrates stress at the contact pole.</div>
+    </div></div>
+
+    <div class="sec"><h2>§7 MASTER EQUATION · EXECUTION SPEED</h2><div class="bd">
+      <div class="eq big">t<sub>cover</sub> = (RT + EMD) + √( 2θ<sub>c</sub> I<sub>∥</sub> / τ<sub>net</sub> )</div>
+      <div class="kv"><span class="k">t<sub>cover</sub> player</span><span class="v" id="rTcov">·</span></div>
+      <div class="kv"><span class="k">t<sub>cover</sub> opponent (ref)</span><span class="v" id="rTcovO">0.346 s</span></div>
+      <div class="kv"><span class="k">margin</span><span class="v" id="rMargin">·</span></div>
+      <div class="note">With I<sub>∥</sub> correctly dominated by forearm inertia about the shaft axis (§3), the mechanical roll term is ~10–20 ms — small. The neural term, RT + EMD, is the dominant lever: ~90% of t<sub>cover</sub>. The whistle is won mainly by anticipatory pre-tension and reaction training, not by grip geometry.</div>
+    </div></div>
+
+  </aside>
+</div>
+
+<div id="timeline">
+  <button id="playBtn">▶ RUN</button>
+  <select id="speedSel">
+    <option value="0.1">0.10×</option>
+    <option value="0.25" selected>0.25×</option>
+    <option value="1">1.00×</option>
+  </select>
+  <div id="trk">
+    <div class="tick" id="tick1"><i>t<sub>dead</sub></i></div>
+    <div class="tick" id="tick2"><i>t<sub>clamp</sub></i></div>
+    <input type="range" id="tSlider" min="0" max="1000" step="1" value="0">
+  </div>
+  <div id="tEnd">t<sub>final</sub> = 0.516 s</div>
+</div>
+
+<section id="matrix">
+  <h2>SUMMARY DATA MATRIX · FRAME-STATE COMPARISON</h2>
+  <table>
+    <tr><th>Quantity</th><th>Winning frame state (Δτ &gt; 0, t<sub>cover</sub> minimized)</th><th>Losing frame state (Δτ &lt; 0, high latency)</th><th>Current configuration (live)</th></tr>
+    <tr><td>RT, reaction time</td><td class="win">170 ms</td><td class="lose">230 ms</td><td class="live" id="mRT">·</td></tr>
+    <tr><td>EMD, electromechanical delay</td><td class="win">45 ms</td><td class="lose">75 ms</td><td class="live" id="mEMD">·</td></tr>
+    <tr><td>I<sub>∥</sub>, roll inertia (grip-independent)</td><td class="win">6.50×10⁻³ kg·m²</td><td class="lose">6.50×10⁻³ kg·m²</td><td class="live" id="mI">·</td></tr>
+    <tr><td>τ<sub>net</sub>, net actuating torque</td><td class="win">22 N·m</td><td class="lose">12 N·m</td><td class="live" id="mTau">·</td></tr>
+    <tr><td>Δτ at the contested point</td><td class="win">+8 N·m, head rotates over ball</td><td class="lose">−6 N·m, counter-clamped</td><td class="live" id="mDtau">·</td></tr>
+    <tr><td>t<sub>cover</sub>, whistle to pin</td><td class="win">0.245 s</td><td class="lose">0.346 s</td><td class="live" id="mTcov">·</td></tr>
+    <tr><td>outcome</td><td class="win">clamp secured, exit initiated</td><td class="lose">latency forfeits the rotation</td><td class="live" id="mRes">·</td></tr>
+  </table>
+  <p class="methods">METHODS NOTE. Rigid multi-body idealization; the crosse is a slender homogeneous rod plus point head mass, actuated at constant net torque over the clamp interval, hence the closed-form θ = ½αt′². Hertzian contact assumes smooth frictionless normal indentation of an elastic sphere on an elastic half-space; the turf interface uses an amontons-coulomb friction law with rate-independent coefficients. Neuromechanical latency is decomposed as serial RT plus EMD with first-order force rise. All displayed quantities are computed analytically from the parameter state at the slider time; the rendered geometry interpolates the same trajectory, so the visual and numerical layers cannot disagree.</p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================================================================
+   4D Biomechanical Vector Analyzer · SNG faceoff
+   Coordinate frame: X = field midline (upfield +X), Y = vertical,
+   Z = across the line; the analyzed player occupies z < 0.
+   ================================================================ */
+
+// ---------- parameter state ----------
+var P = {
+  RT: 180, EMD: 55,          // ms
+  d: 0.30,                   // hand spacing, m
+  tau: 18, tauOpp: 14,       // N·m
+  wet: false,
+  tNorm: 0, playing: false, speed: 0.25
+};
+var C = {
+  m: 0.56, L: 1.02, thetaC: Math.PI/2, rHead: 0.265,
+  mFA: 1.7, rFA: 0.042,
+  R: 0.0319, Eb: 0.1e9, nb: 0.47, Eh: 3e9, nh: 0.35,
+  musD: 0.45, mukD: 0.30, musW: 0.28, mukW: 0.18,
+  Fmax: 420, tauF: 0.040, drive: 0.150,
+  // opponent reference for t_cover comparison
+  oRT: 230, oEMD: 75, oD: 0.36, oTau: 12
+};
+
+function rollInertia(){
+  // Roll is about the SHAFT LONG AXIS, through the hands. Axial (hand-spacing)
+  // separation does not change moment of inertia about that axis: mass
+  // elements along the roll axis contribute ~0. The roll inertia is set by
+  // the crosse's own small axial I plus the forearms/hands that co-rotate with it.
+  var IcrosseAx = 5.0e-4;                     // crosse, about its own long axis
+  var Iforearm = C.mFA * C.rFA * C.rFA;       // single forearm, about shaft axis
+  var I = IcrosseAx + 2 * Iforearm;           // both forearms co-rotate
+  return { IcrosseAx: IcrosseAx, Iforearm: Iforearm, I: I };
+}
+function coverTime(RTms, EMDms, tau){
+  var I = rollInertia().I;
+  return (RTms + EMDms)/1000 + Math.sqrt(2 * C.thetaC * I / tau);
+}
+function timeline(){
+  var tDead = (P.RT + P.EMD)/1000;
+  var I = rollInertia().I;
+  var alpha = P.tau / I;
+  var tMotion = Math.sqrt(2 * C.thetaC * I / P.tau);
+  return { tDead: tDead, alpha: alpha, tMotion: tMotion,
+           tClampEnd: tDead + tMotion, tFinal: tDead + tMotion + C.drive };
+}
+function smooth(x){ x = Math.max(0, Math.min(1, x)); return x*x*(3-2*x); }
+
+// kinematic + dynamic sample at absolute time t (s)
+function sample(t){
+  var T = timeline();
+  var s = 0, omega = 0, phase, sDrive = 0;
+  if (t <= 1e-9) phase = 0;
+  else if (t < T.tDead) phase = 1;            // neural latency
+  else if (t <= T.tClampEnd){                  // clamp motion
+    phase = 2;
+    var tp = t - T.tDead;
+    var th = 0.5 * T.alpha * tp * tp;
+    s = Math.min(1, th / C.thetaC);
+    omega = T.alpha * tp;
+  } else {                                     // drive
+    phase = 3; s = 1;
+    sDrive = Math.min(1, (t - T.tClampEnd) / C.drive);
+    omega = 0;
+  }
+  // normal pre-load at the head-turf interface
+  var N = 8;
+  if (phase === 2) N = 8 + 32 * s;
+  if (phase === 3) N = 40 + 110 * smooth(sDrive);
+  // shear demand transmitted through the pin
+  var Fsh = 4;
+  if (phase === 2) Fsh = 4 + 8 * s;
+  if (phase === 3) Fsh = 12 + 58 * smooth(sDrive);
+  // pin force on ball (Hertz) tracks N
+  var Fpin = Math.max(2, N * 0.95);
+  // RFD, force rise after RT during EMD and beyond
+  var rfd = 0;
+  var tRT = P.RT/1000;
+  if (t > tRT) rfd = (C.Fmax / C.tauF) * Math.exp(-(t - tRT)/C.tauF);
+  return { T:T, phase:phase, s:s, omega:omega, sDrive:sDrive,
+           theta:s*C.thetaC, psi:s*(Math.PI/4), N:N, Fsh:Fsh, Fpin:Fpin, rfd:rfd };
+}
+function hertz(F){
+  var Est = 1 / ((1 - C.nb*C.nb)/C.Eb + (1 - C.nh*C.nh)/C.Eh);
+  var a = Math.cbrt(3 * F * C.R / (4 * Est));
+  var p0 = 3 * F / (2 * Math.PI * a * a);
+  return { Est: Est, a: a, p0: p0 };
+}
+
+// ---------- three.js scene ----------
+var canvas = document.getElementById('c3d');
+var renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0e13);
+scene.fog = new THREE.Fog(0x0b0e13, 2.2, 5.5);
+
+var camera = new THREE.PerspectiveCamera(45, 2, 0.05, 30);
+var camTarget = new THREE.Vector3(0, 0.10, -0.10);
+var orbit = { az: -2.45, pol: 1.05, r: 1.45 };
+function placeCamera(){
+  var sp = Math.sin(orbit.pol), cp = Math.cos(orbit.pol);
+  camera.position.set(
+    camTarget.x + orbit.r * sp * Math.cos(orbit.az),
+    camTarget.y + orbit.r * cp,
+    camTarget.z + orbit.r * sp * Math.sin(orbit.az));
+  camera.lookAt(camTarget);
+}
+placeCamera();
+
+// minimal orbit controls, drag to rotate, wheel to dolly
+(function(){
+  var drag = false, px = 0, py = 0;
+  canvas.addEventListener('mousedown', function(e){ drag = true; px = e.clientX; py = e.clientY; });
+  window.addEventListener('mouseup', function(){ drag = false; });
+  window.addEventListener('mousemove', function(e){
+    if (!drag) return;
+    orbit.az += (e.clientX - px) * 0.006;
+    orbit.pol = Math.max(0.15, Math.min(1.45, orbit.pol + (e.clientY - py) * 0.005));
+    px = e.clientX; py = e.clientY; placeCamera();
+  });
+  canvas.addEventListener('wheel', function(e){
+    e.preventDefault();
+    orbit.r = Math.max(0.45, Math.min(4.5, orbit.r * (1 + e.deltaY * 0.001)));
+    placeCamera();
+  }, {passive:false});
+})();
+
+scene.add(new THREE.HemisphereLight(0x9db4c8, 0x0a1410, 0.95));
+var dl = new THREE.DirectionalLight(0xffffff, 0.75);
+dl.position.set(1.5, 2.2, -1.2);
+scene.add(dl);
+
+// turf, grid, midline
+var turf = new THREE.Mesh(
+  new THREE.PlaneGeometry(4, 4),
+  new THREE.MeshStandardMaterial({color: 0x0c2316, roughness: 1}));
+turf.rotation.x = -Math.PI/2;
+scene.add(turf);
+var grid = new THREE.GridHelper(4, 40, 0x1b3a28, 0x12281b);
+grid.position.y = 0.001;
+scene.add(grid);
+var midline = new THREE.Mesh(
+  new THREE.BoxGeometry(4, 0.002, 0.035),
+  new THREE.MeshBasicMaterial({color: 0xcfd8dc}));
+midline.position.y = 0.002;
+scene.add(midline);
+
+// ball
+var ball = new THREE.Mesh(
+  new THREE.SphereGeometry(C.R, 28, 20),
+  new THREE.MeshStandardMaterial({color: 0xf5f0dd, roughness: 0.55, emissive: 0x141208}));
+ball.position.set(0, C.R, 0);
+scene.add(ball);
+
+// ---------- crosse construction ----------
+function headGeometry(){
+  var s = new THREE.Shape();
+  s.moveTo(-0.13, 0.012);
+  s.quadraticCurveTo(0.00, 0.062, 0.09, 0.066);
+  s.quadraticCurveTo(0.135, 0.050, 0.130, 0.000);
+  s.quadraticCurveTo(0.125, -0.050, 0.080, -0.062);
+  s.quadraticCurveTo(0.00, -0.060, -0.13, -0.012);
+  s.lineTo(-0.13, 0.012);
+  var h = new THREE.Path();
+  h.moveTo(-0.112, 0.007);
+  h.quadraticCurveTo(0.00, 0.048, 0.085, 0.051);
+  h.quadraticCurveTo(0.118, 0.038, 0.114, 0.000);
+  h.quadraticCurveTo(0.110, -0.038, 0.074, -0.048);
+  h.quadraticCurveTo(0.00, -0.046, -0.112, -0.007);
+  h.lineTo(-0.112, 0.007);
+  s.holes.push(h);
+  var g = new THREE.ExtrudeGeometry(s, {depth: 0.009, bevelEnabled: false});
+  g.translate(0, 0, -0.0045);
+  return g;
+}
+function stringTube(x){
+  var curve = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(x, 0.044, 0),
+    new THREE.Vector3(x, 0, -0.012),
+    new THREE.Vector3(x, -0.044, 0));
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.0012, 5),
+    new THREE.MeshBasicMaterial({color: 0x9aa7b5}));
+}
+function buildCrosse(ghost, sx){
+  sx = (sx === undefined) ? -1 : sx;   // -1 = shaft toward -X (default/opponent); +1 = +X (player)
+  var op = ghost ? 0.30 : 1.0;
+  var headMat = new THREE.MeshStandardMaterial({color: ghost ? 0x6b7682 : 0xe2e6ea, roughness:0.5, transparent: ghost, opacity: op});
+  var shaftMat = new THREE.MeshStandardMaterial({color: ghost ? 0x596270 : 0xb9c2cc, metalness:0.55, roughness:0.35, transparent: ghost, opacity: op});
+  var grp = new THREE.Group();          // origin at head center, on shaft axis
+  var head = new THREE.Mesh(headGeometry(), headMat);
+  head.scale.x = -sx;                   // mirror head when shaft flips to +X
+  grp.add(head);
+  if (!ghost){ [-0.05, 0.0, 0.05, 0.09].forEach(function(x){ grp.add(stringTube(sx*x)); }); }
+  var throatG = new THREE.CylinderGeometry(0.009, 0.013, 0.06, 10);
+  throatG.rotateZ(Math.PI/2);
+  var throat = new THREE.Mesh(throatG, shaftMat);
+  throat.position.x = sx*0.16; grp.add(throat);
+  var shaftG = new THREE.CylinderGeometry(0.0125, 0.0125, 0.77, 12);
+  shaftG.rotateZ(Math.PI/2);
+  var shaft = new THREE.Mesh(shaftG, shaftMat);
+  shaft.position.x = sx*0.575; grp.add(shaft);
+  var butt = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8),
+    new THREE.MeshStandardMaterial({color: 0x37404c, transparent: ghost, opacity: op}));
+  butt.position.x = sx*0.96; grp.add(butt);
+  return grp;
+}
+function buildHand(color){
+  var h = new THREE.Group();
+  var palm = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.028, 0.07),
+    new THREE.MeshStandardMaterial({color: color, roughness: 0.8}));
+  h.add(palm);
+  var arrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0.016,0), 0.075, 0xdfe6ee, 0.022, 0.012);
+  h.add(arrow);
+  return h;
+}
+
+// player crosse, pivot at head center so the sweep orbits the ball.
+// SNG stance: head at the ball; shaft runs toward +X (player's left, where the
+// body sits) so the ball ends up on the player's RIGHT and the right hand is
+// the near-head hand. Both hands START on the ground (shaft flat); the left
+// hand rises during the clamp, then punches out. tiltG carries that rising
+// shaft tilt; stick.rotation.x (the roll) acts about the tilted shaft axis.
+var SIDE = 1;              // +1 = player rig on +X (ball on player's right)
+var TILT_MAX = 0.42;       // peak shaft up-tilt (left-hand rise) at end of clamp
+var SWEEP_SIGN = -1;       // sign of the 45° punch; flip if it sweeps the wrong way
+var PUNCH_X = -0.07;       // out-translation of the head/hands during the drive punch
+var STEP_X = 0.16;         // right-foot step down the line toward the ball, during the exit
+var pivot = new THREE.Group();
+var SETUP = { x: 0, y: 0.058, z: -0.046 };   // head low at the ball, hands on the turf
+pivot.position.set(SETUP.x, SETUP.y, SETUP.z);
+scene.add(pivot);
+var tiltG = new THREE.Group();
+tiltG.rotation.z = 0;       // starts FLAT (both hands grounded); animated in update()
+pivot.add(tiltG);
+var stick = buildCrosse(false, SIDE);
+tiltG.add(stick);
+var handR = buildHand(0x8fa3b8);  handR.position.set(SIDE*0.165, 0, 0); stick.add(handR);
+var handL = buildHand(0x7e93a8);  handL.position.set(SIDE*(0.165 + P.d), 0, 0); stick.add(handL);
+
+// opponent ghost, mirrored through the ball
+var oppPivot = new THREE.Group();
+oppPivot.position.set(0, 0.058, 0.046);
+oppPivot.rotation.y = Math.PI;
+scene.add(oppPivot);
+var oppTiltG = new THREE.Group();
+oppTiltG.rotation.z = 0;
+oppPivot.add(oppTiltG);
+var oppStick = buildCrosse(true);
+oppTiltG.add(oppStick);
+
+// feet, SNG standing stance: right foot crowds the ball/head (not past the
+// plastic, neutral-zone limit), left foot back near the butt end. Body sits to
+// the player's left of the ball (+X), hinged forward, knees bent. Ball is on
+// the player's right.
+var footMat = new THREE.MeshStandardMaterial({color: 0x24303c, roughness: 0.9});
+var footA = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.22), footMat); // right foot, near ball
+footA.position.set(0.07, 0.006, -0.16); footA.rotation.y = 0.28; scene.add(footA);
+var footB = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.22), footMat); // left foot, near butt
+footB.position.set(0.55, 0.006, -0.22); footB.rotation.y = -0.22; scene.add(footB);
+var bosPts = [
+  new THREE.Vector3(-0.04, 0.003, -0.28), new THREE.Vector3(0.62, 0.003, -0.32),
+  new THREE.Vector3(0.62, 0.003, -0.10), new THREE.Vector3(-0.04, 0.003, -0.06),
+  new THREE.Vector3(-0.04, 0.003, -0.28)];
+var bos = new THREE.Line(new THREE.BufferGeometry().setFromPoints(bosPts),
+  new THREE.LineBasicMaterial({color: 0x33564a}));
+scene.add(bos);
+
+// ---------- schematic body, low-poly, semi-transparent ----------
+// Standing SNG hinge: knees bent, torso forward, head over the ball, both
+// hands on the shaft. Arm segments are recomputed every frame to track the
+// live hand positions; everything else is a fixed rig.
+var bodyMat = new THREE.MeshStandardMaterial({color: 0x4a6b80, roughness: 0.85, transparent: true, opacity: 0.45});
+var jointMat = new THREE.MeshStandardMaterial({color: 0x5c8099, roughness: 0.8, transparent: true, opacity: 0.5});
+var bodyG = new THREE.Group();
+scene.add(bodyG);
+
+var RIG = {
+  hip:      new THREE.Vector3(0.36, 0.34, -0.34),
+  shoulderR: new THREE.Vector3(0.12, 0.50, -0.12),   // right shoulder, near the head/ball
+  shoulderL: new THREE.Vector3(0.36, 0.50, -0.14),   // left shoulder, toward the butt
+  headC:    new THREE.Vector3(0.06, 0.54, -0.04),    // player's head, eyes over the ball
+  kneeR:    new THREE.Vector3(0.10, 0.20, -0.09),
+  kneeL:    new THREE.Vector3(0.56, 0.20, -0.12),
+  ankleR:   new THREE.Vector3(0.07, 0.012, -0.16),
+  ankleL:   new THREE.Vector3(0.55, 0.012, -0.22)
+};
+function setBone(mesh, a, b){
+  var dir = new THREE.Vector3().subVectors(b, a);
+  var len = dir.length();
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.scale.y = len / mesh.userData.baseLen;
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+}
+function makeBone(r, baseLen, mat){
+  var g = new THREE.CylinderGeometry(r, r, baseLen, 8);
+  var m = new THREE.Mesh(g, mat || bodyMat);
+  m.userData.baseLen = baseLen;
+  return m;
+}
+// torso, spine hip -> shoulder midpoint
+var shoulderMid = RIG.shoulderR.clone().add(RIG.shoulderL).multiplyScalar(0.5);
+var torso = makeBone(0.085, 1, bodyMat);
+setBone(torso, RIG.hip, shoulderMid);
+bodyG.add(torso);
+// pelvis
+var pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), jointMat);
+pelvis.position.copy(RIG.hip); bodyG.add(pelvis);
+// head, eyes-over-ball
+var headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.095, 14, 10), jointMat);
+headMesh.position.copy(RIG.headC); bodyG.add(headMesh);
+// neck, shoulder-mid -> head
+var neck = makeBone(0.05, 1, bodyMat);
+setBone(neck, shoulderMid, RIG.headC);
+bodyG.add(neck);
+// legs, two-segment with knee spheres
+var thighR = makeBone(0.07, 1, bodyMat); setBone(thighR, RIG.hip, RIG.kneeR); bodyG.add(thighR);
+var shinR  = makeBone(0.055, 1, bodyMat); setBone(shinR, RIG.kneeR, RIG.ankleR); bodyG.add(shinR);
+var kneeR  = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), jointMat); kneeR.position.copy(RIG.kneeR); bodyG.add(kneeR);
+var thighL = makeBone(0.07, 1, bodyMat); setBone(thighL, RIG.hip, RIG.kneeL); bodyG.add(thighL);
+var shinL  = makeBone(0.055, 1, bodyMat); setBone(shinL, RIG.kneeL, RIG.ankleL); bodyG.add(shinL);
+var kneeL  = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), jointMat); kneeL.position.copy(RIG.kneeL); bodyG.add(kneeL);
+// shoulders
+var shR = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), jointMat); shR.position.copy(RIG.shoulderR); bodyG.add(shR);
+var shL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), jointMat); shL.position.copy(RIG.shoulderL); bodyG.add(shL);
+// arms, single-segment shoulder -> live hand, recomputed each frame
+var armR = makeBone(0.05, 1, bodyMat); bodyG.add(armR);
+var armL = makeBone(0.05, 1, bodyMat); bodyG.add(armL);
+
+// CoM marker, dashed projection, ground dot
+var com = new THREE.Mesh(new THREE.SphereGeometry(0.020, 14, 10),
+  new THREE.MeshBasicMaterial({color: 0xe879f9}));
+scene.add(com);
+var comLineGeom = new THREE.BufferGeometry().setFromPoints(
+  [new THREE.Vector3(0,0,0), new THREE.Vector3(0,1,0)]);
+var comLine = new THREE.Line(comLineGeom,
+  new THREE.LineDashedMaterial({color: 0xe879f9, dashSize: 0.02, gapSize: 0.014}));
+scene.add(comLine);
+var comDot = new THREE.Mesh(new THREE.CircleGeometry(0.016, 16),
+  new THREE.MeshBasicMaterial({color: 0xe879f9}));
+comDot.rotation.x = -Math.PI/2; comDot.position.y = 0.004; scene.add(comDot);
+
+// ---------- vectors ----------
+function arrow(color){
+  var a = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 0.1, color, 0.04, 0.02);
+  scene.add(a); return a;
+}
+var vTauSup = arrow(0x22d3ee);   // supination torque axis, bottom hand
+var vFpron  = arrow(0xa78bfa);   // pronation-flexion drive, top hand
+var vOmega  = arrow(0xfb923c);   // angular velocity along shaft
+var vGrfA   = arrow(0xfbbf24);   // GRF rear foot
+var vGrfB   = arrow(0xfbbf24);   // GRF front foot
+var vNorm   = arrow(0x34d399);   // contact normal at pin
+var vFric   = arrow(0xf87171);   // friction at pin
+
+// text sprites
+function makeLabel(text, color){
+  var cv = document.createElement('canvas'); cv.width = 256; cv.height = 96;
+  var cx = cv.getContext('2d');
+  cx.font = 'bold 42px Menlo, monospace';
+  cx.fillStyle = color; cx.textAlign = 'center';
+  cx.fillText(text, 128, 60);
+  var tx = new THREE.CanvasTexture(cv);
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tx, transparent: true, depthTest: false}));
+  sp.scale.set(0.17, 0.064, 1);
+  scene.add(sp); return sp;
+}
+var lTau   = makeLabel('τ_sup', '#22d3ee');
+var lFp    = makeLabel('F_pron', '#a78bfa');
+var lOm    = makeLabel('ω', '#fb923c');
+var lGrf   = makeLabel('F_GRF', '#fbbf24');
+var lN     = makeLabel('N', '#34d399');
+var lF     = makeLabel('f', '#f87171');
+var lCom   = makeLabel('CoM', '#e879f9');
+
+var _wp = new THREE.Vector3(), _wq = new THREE.Quaternion(), _dir = new THREE.Vector3();
+
+// ---------- DOM refs ----------
+function $(id){ return document.getElementById(id); }
+var el = {
+  chip: $('phaseChip'), clock: $('tClock'),
+  rPhase: $('rPhase'), rTheta: $('rTheta'), rPsi: $('rPsi'), rOmega: $('rOmega'), rAlpha: $('rAlpha'),
+  rDead: $('rDead'), rRFD: $('rRFD'), rRFDpk: $('rRFDpk'),
+  rIcrosse: $('rIcrosse'), rIforearm: $('rIforearm'), rIpar: $('rIpar'),
+  rDtau: $('rDtau'), rMA: $('rMA'),
+  rMus: $('rMus'), rMuk: $('rMuk'), rN: $('rN'), rFcap: $('rFcap'), rFsh: $('rFsh'),
+  fricbar: $('fricbar'), rRegime: $('rRegime'),
+  rFpin: $('rFpin'), rEst: $('rEst'), rA: $('rA'), rP0: $('rP0'),
+  rTcov: $('rTcov'), rTcovO: $('rTcovO'), rMargin: $('rMargin'),
+  tEnd: $('tEnd'), tick1: $('tick1'), tick2: $('tick2'),
+  mRT: $('mRT'), mEMD: $('mEMD'), mI: $('mI'), mTau: $('mTau'),
+  mDtau: $('mDtau'), mTcov: $('mTcov'), mRes: $('mRes'),
+  slider: $('tSlider'), play: $('playBtn'), speed: $('speedSel')
+};
+var pctx = $('pcanvas').getContext('2d');
+
+var PHASES = [
+  'PHASE 0 · SETUP STANCE',
+  'PHASE 1a · NEURAL LATENCY (RT+EMD)',
+  'PHASE 1b · CLAMP · OUT, DOWN, AROUND',
+  'PHASE 2 · DRIVE · CONTESTED PIN'];
+var PHASES_S = ['Setup', 'Latency', 'Clamp', 'Drive'];
+
+// ---------- static + param-dependent readouts ----------
+function refreshParams(){
+  var inr = rollInertia();
+  var T = timeline();
+  var mus = P.wet ? C.musW : C.musD, muk = P.wet ? C.mukW : C.mukD;
+  el.rDead.textContent = T.tDead.toFixed(3) + ' s';
+  el.rRFDpk.textContent = Math.round(C.Fmax / C.tauF).toLocaleString() + ' N·s⁻¹';
+  el.rIcrosse.textContent = inr.IcrosseAx.toExponential(2) + ' kg·m²';
+  el.rIforearm.textContent = inr.Iforearm.toFixed(4) + ' kg·m² ×2';
+  el.rIpar.textContent = inr.I.toFixed(4) + ' kg·m²';
+  el.rAlpha.textContent = T.alpha.toFixed(1) + ' rad·s⁻²';
+  var dt = P.tau - P.tauOpp;
+  el.rDtau.textContent = (dt >= 0 ? '+' : '') + dt.toFixed(1) + ' N·m';
+  el.rDtau.style.color = dt >= 0 ? '#34d399' : '#f87171';
+  el.rMA.textContent = (P.d / C.rHead).toFixed(2);
+  el.rMus.textContent = mus.toFixed(2);
+  el.rMuk.textContent = muk.toFixed(2);
+  var tc = coverTime(P.RT, P.EMD, P.tau);
+  var tco = coverTime(C.oRT, C.oEMD, C.oTau);
+  el.rTcov.textContent = tc.toFixed(3) + ' s';
+  el.rTcov.style.color = tc < tco ? '#34d399' : '#f87171';
+  el.rTcovO.textContent = tco.toFixed(3) + ' s';
+  var mg = tco - tc;
+  el.rMargin.textContent = (mg >= 0 ? '+' : '') + (mg*1000).toFixed(0) + ' ms';
+  el.rMargin.style.color = mg >= 0 ? '#34d399' : '#f87171';
+  el.tEnd.innerHTML = 't<sub>final</sub> = ' + T.tFinal.toFixed(3) + ' s';
+  el.tick1.style.left = (T.tDead / T.tFinal * 100) + '%';
+  el.tick2.style.left = (T.tClampEnd / T.tFinal * 100) + '%';
+  // live matrix column
+  el.mRT.textContent = P.RT + ' ms';
+  el.mEMD.textContent = P.EMD + ' ms';
+  el.mI.textContent = inr.I.toExponential(2) + ' kg·m² (const.)';
+  el.mTau.textContent = P.tau.toFixed(1) + ' N·m';
+  el.mDtau.textContent = (dt >= 0 ? '+' : '') + dt.toFixed(1) + ' N·m';
+  el.mTcov.textContent = tc.toFixed(3) + ' s';
+  var winning = (dt > 0 && tc < tco);
+  el.mRes.textContent = winning ? 'clamp secured' : (dt <= 0 ? 'counter-clamped' : 'late to the pin');
+  el.mRes.style.color = winning ? '#34d399' : '#f87171';
+  // visual hand spacing
+  handL.position.x = SIDE * (0.165 + P.d);
+}
+
+// ---------- per-frame update ----------
+function setArrow(a, origin, dir, len, visible){
+  a.visible = visible && len > 1e-4;
+  if (!a.visible) return;
+  a.position.copy(origin);
+  _dir.copy(dir).normalize();
+  a.setDirection(_dir);
+  a.setLength(len, Math.min(0.05, len*0.32), Math.min(0.026, len*0.18));
+}
+function labelAt(sp, obj, dy, visible){
+  sp.visible = visible;
+  if (!visible) return;
+  if (obj.isVector3) _wp.copy(obj); else obj.getWorldPosition(_wp);
+  sp.position.set(_wp.x, _wp.y + dy, _wp.z);
+}
+
+function update(){
+  var T = timeline();
+  var t = P.tNorm * T.tFinal;
+  var S = sample(t);
+  var mus = P.wet ? C.musW : C.musD, muk = P.wet ? C.mukW : C.mukD;
+
+  // --- pose the crosse ---
+  var e = smooth(S.s);
+  var pDrive = (S.phase === 3) ? smooth(S.sDrive) : 0;
+  // 90° head roll over the ball, during the clamp
+  stick.rotation.x = (Math.PI/2) * S.s;
+  // left hand rises off the turf during the clamp, then comes back DOWN through
+  // the drive so BOTH hands finish on the ground at the end of the rep.
+  var liftEnv = e * (1 - pDrive);
+  tiltG.rotation.z = SIDE * TILT_MAX * liftEnv;
+  // the 45° punch is the horizontal sweep, executed in the DRIVE phase and
+  // directed AWAY from the body (SWEEP_SIGN).
+  pivot.rotation.y = SWEEP_SIGN * (Math.PI/4) * pDrive;
+  pivot.position.set(
+    SETUP.x + PUNCH_X * pDrive,                            // punch out, away from body
+    SETUP.y - 0.012 * e - 0.010 * pDrive,                  // press down; no end-lift, hands stay grounded
+    SETUP.z + 0.030 * pDrive);                             // drive upfield
+  handR.rotation.x = -(Math.PI/2) * S.s * 0.45 + 0.9 * S.s;  // supination lead
+  handL.rotation.x = -(Math.PI/2) * S.s * 0.45 - 0.7 * S.s;  // pronation-flexion
+  // opponent ghost, slower and capped (counter-clamped)
+  var oDead = (C.oRT + C.oEMD)/1000;
+  var oI = rollInertia().I, oAl = C.oTau / oI;
+  var oS = 0;
+  if (t > oDead){
+    var oth = 0.5 * oAl * (t - oDead) * (t - oDead);
+    oS = Math.min(0.38, oth / C.thetaC);                  // never completes
+  }
+  oppStick.rotation.x = (Math.PI/2) * oS;
+
+  // --- right foot (closest to the ball) steps down the line toward the ball
+  //     during the exit, pulling the CoM in. Its leg follows the step. ---
+  var stepX = 0.07 - STEP_X * pDrive;
+  footA.position.x = stepX;
+  var ankleRLive = new THREE.Vector3(stepX, 0.05, footA.position.z);
+  var kneeRLive = new THREE.Vector3(ankleRLive.x + 0.03, 0.20, ankleRLive.z + 0.07);  // knee over the foot, forward of the elbow
+  setBone(thighR, RIG.hip, kneeRLive);
+  setBone(shinR, kneeRLive, ankleRLive);
+  kneeR.position.copy(kneeRLive);
+
+  // --- arms, recomputed from fixed shoulders to live hand world positions ---
+  handR.getWorldPosition(_wp);
+  setBone(armR, RIG.shoulderR, _wp.clone());
+  handL.getWorldPosition(_wp);
+  setBone(armL, RIG.shoulderL, _wp.clone());
+
+  // --- CoM kinetics: pulled toward the ball by the step-in ---
+  var cz = -0.32 + 0.10 * pDrive + 0.02 * S.s;
+  var cx = 0.30 - 0.27 * pDrive;                          // CoM drawn in toward the ball
+  var cy = 0.40 - 0.05 * S.s - 0.03 * (S.phase === 3 ? S.sDrive : 0);
+  com.position.set(cx, cy, cz);
+  comLine.geometry.setFromPoints([new THREE.Vector3(cx, 0.004, cz), new THREE.Vector3(cx, cy, cz)]);
+  comLine.computeLineDistances();
+  comDot.position.set(cx, 0.004, cz);
+
+  // --- vectors ---
+  var clampOn = S.phase === 2;
+  var driveOn = S.phase === 3;
+  // world direction of shaft +X
+  stick.getWorldQuaternion(_wq);
+  var shaftDir = new THREE.Vector3(1,0,0).applyQuaternion(_wq);
+  handR.getWorldPosition(_wp);
+  setArrow(vTauSup, _wp.clone(), shaftDir, 0.06 + 0.16 * (clampOn ? 1 : 0) * (P.tau/30), clampOn);
+  labelAt(lTau, handR, 0.075, clampOn);
+  handL.getWorldPosition(_wp);
+  setArrow(vFpron, _wp.clone(), new THREE.Vector3(0,-1,0), clampOn ? 0.14 : 0, clampOn);
+  labelAt(lFp, handL, 0.07, clampOn);
+  var midShaft = new THREE.Vector3(SIDE*0.55, 0, 0).applyQuaternion(_wq);
+  stick.getWorldPosition(_wp); // pivot-translated origin of stick group
+  var msPos = _wp.clone().add(midShaft);
+  setArrow(vOmega, msPos, shaftDir, Math.min(0.30, 0.012 * S.omega), clampOn && S.omega > 0.5);
+  labelAt(lOm, msPos.clone().add(new THREE.Vector3(0, 0.05, 0)), 0.02, clampOn && S.omega > 0.5);
+
+  var grfLen = driveOn ? 0.11 + 0.16 * smooth(S.sDrive) : 0;
+  var grfDir = new THREE.Vector3(0.12, 1, 0.30).normalize();
+  setArrow(vGrfA, footA.position.clone().setY(0.012), grfDir, grfLen, driveOn);
+  setArrow(vGrfB, footB.position.clone().setY(0.012), grfDir, grfLen * 0.85, driveOn);
+  labelAt(lGrf, footB.position.clone().add(new THREE.Vector3(0.05, grfLen + 0.05, 0)), 0, driveOn);
+
+  var pinP = new THREE.Vector3(0.01, 0.065, -0.02);
+  setArrow(vNorm, pinP, new THREE.Vector3(0,1,0), driveOn ? 0.06 + 0.10 * (S.N/150) : 0, driveOn);
+  labelAt(lN, pinP.clone().add(new THREE.Vector3(0, 0.20, 0)), 0, driveOn);
+  var slip = S.Fsh > mus * S.N;
+  setArrow(vFric, new THREE.Vector3(0.02, 0.012, 0.0),
+    new THREE.Vector3(-0.8, 0, -0.6), driveOn ? 0.05 + 0.001 * Math.min(S.Fsh, mus*S.N) * 60 : 0, driveOn);
+  labelAt(lF, new THREE.Vector3(-0.10, 0.05, -0.07), 0, driveOn);
+  labelAt(lCom, com, 0.05, true);
+
+  // --- readouts ---
+  el.clock.textContent = 't = ' + t.toFixed(3) + ' s';
+  el.chip.textContent = PHASES[S.phase];
+  el.rPhase.textContent = PHASES_S[S.phase];
+  el.rTheta.textContent = (S.theta * 180/Math.PI).toFixed(1) + '°';
+  el.rPsi.textContent = (S.psi * 180/Math.PI).toFixed(1) + '°';
+  el.rOmega.textContent = S.omega.toFixed(2) + ' rad·s⁻¹';
+  el.rRFD.textContent = Math.round(S.rfd).toLocaleString() + ' N·s⁻¹';
+  el.rN.textContent = S.N.toFixed(0) + ' N';
+  var fcap = mus * S.N;
+  el.rFcap.textContent = fcap.toFixed(0) + ' N';
+  el.rFsh.textContent = S.Fsh.toFixed(0) + ' N';
+  var ratio = Math.min(1.25, S.Fsh / Math.max(1, fcap));
+  el.fricbar.style.width = Math.min(100, ratio * 100) + '%';
+  el.fricbar.style.background = slip ? '#f87171' : '#34d399';
+  el.rRegime.textContent = 'regime · ' + (slip ? 'KINETIC SLIP, f = μₖN' : 'STATIC, f ≤ μₛN');
+  el.rRegime.style.color = slip ? '#f87171' : '#34d399';
+  var H = hertz(S.Fpin);
+  el.rFpin.textContent = S.Fpin.toFixed(0) + ' N';
+  el.rEst.textContent = (H.Est/1e6).toFixed(0) + ' MPa';
+  el.rA.textContent = (H.a*1000).toFixed(2) + ' mm';
+  el.rP0.textContent = (H.p0/1e6).toFixed(2) + ' MPa';
+  drawPressure(H);
+}
+
+function drawPressure(H){
+  var w = 320, h = 70;
+  pctx.clearRect(0,0,w,h);
+  pctx.strokeStyle = '#1f2937'; pctx.beginPath();
+  pctx.moveTo(10, h-12); pctx.lineTo(w-10, h-12); pctx.stroke();
+  var p0max = 12e6; // axis scale, Pa
+  var amp = Math.min(1, H.p0 / p0max) * (h - 24);
+  pctx.beginPath();
+  pctx.moveTo(w/2 - 120, h-12);
+  for (var i = -120; i <= 120; i += 4){
+    var r = i / 120;
+    var y = amp * Math.sqrt(Math.max(0, 1 - r*r));
+    pctx.lineTo(w/2 + i, h - 12 - y);
+  }
+  pctx.lineTo(w/2 + 120, h-12);
+  pctx.closePath();
+  pctx.fillStyle = 'rgba(52, 211, 153, 0.18)'; pctx.fill();
+  pctx.strokeStyle = '#34d399'; pctx.stroke();
+  pctx.fillStyle = '#5b6878'; pctx.font = '9px Menlo, monospace';
+  pctx.fillText('p(r) = p0 sqrt(1 - r^2/a^2)', 12, 12);
+  pctx.fillText('-a', w/2 - 126, h-2);
+  pctx.fillText('+a', w/2 + 114, h-2);
+}
+
+// ---------- controls ----------
+function bindRange(id, valId, key, fmt){
+  var s = $(id), v = $(valId);
+  s.addEventListener('input', function(){
+    P[key] = parseFloat(s.value);
+    v.textContent = fmt(P[key]);
+    refreshParams(); update();
+  });
+}
+bindRange('sRT','vRT','RT', function(x){ return x.toFixed(0) + ' ms'; });
+bindRange('sEMD','vEMD','EMD', function(x){ return x.toFixed(0) + ' ms'; });
+bindRange('sD','vD','d', function(x){ return x.toFixed(3) + ' m'; });
+bindRange('sTau','vTau','tau', function(x){ return x.toFixed(1) + ' N·m'; });
+bindRange('sTauO','vTauO','tauOpp', function(x){ return x.toFixed(1) + ' N·m'; });
+$('bDry').addEventListener('click', function(){
+  P.wet = false; $('bDry').classList.add('on'); $('bWet').classList.remove('on');
+  refreshParams(); update();
+});
+$('bWet').addEventListener('click', function(){
+  P.wet = true; $('bWet').classList.add('on'); $('bDry').classList.remove('on');
+  refreshParams(); update();
+});
+el.slider.addEventListener('input', function(){
+  P.tNorm = el.slider.value / 1000;
+  P.playing = false; el.play.textContent = '▶ RUN';
+  update();
+});
+el.play.addEventListener('click', function(){
+  if (P.tNorm >= 1) P.tNorm = 0;
+  P.playing = !P.playing;
+  el.play.textContent = P.playing ? '❚❚ HOLD' : '▶ RUN';
+});
+el.speed.addEventListener('change', function(){ P.speed = parseFloat(el.speed.value); });
+
+// ---------- main loop ----------
+var lastT = performance.now();
+function resize(){
+  var w = canvas.clientWidth, hh = canvas.clientHeight;
+  if (canvas.width !== Math.floor(w * renderer.getPixelRatio())){
+    renderer.setSize(w, hh, false);
+    camera.aspect = w / hh;
+    camera.updateProjectionMatrix();
+  }
+}
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt = Math.min(0.05, (now - lastT)/1000); lastT = now;
+  if (P.playing){
+    var T = timeline();
+    P.tNorm += dt * P.speed / T.tFinal;
+    if (P.tNorm >= 1){ P.tNorm = 1; P.playing = false; el.play.textContent = '▶ RUN'; }
+    el.slider.value = Math.round(P.tNorm * 1000);
+    update();
+  }
+  resize();
+  renderer.render(scene, camera);
+}
+refreshParams();
+update();
+requestAnimationFrame(loop);
+window.addEventListener('resize', resize);
+</script>
+</body>
+</html>
